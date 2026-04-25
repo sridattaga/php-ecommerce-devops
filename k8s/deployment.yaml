@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: php-app
-        image: YOUR_NEXUS_IP:8082/php-ecommerce:1
+        image: sridatta5157/php-ecommerce:IMAGE_TAG
         ports:
         - containerPort: 80
         env:
