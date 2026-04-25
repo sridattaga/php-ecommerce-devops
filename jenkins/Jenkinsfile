@@ -1,35 +1,50 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "YOUR_NEXUS_IP:8082/php-ecommerce"
+        SONARQUBE = "SonarQube"
+    }
+
     stages {
 
-        stage('Clone') {
+        stage('Checkout') {
             steps {
-                git 'https://github.com/your-repo/php-ecommerce-devops.git'
+                git 'https://github.com/YOUR-REPO/php-ecommerce-devops.git'
             }
         }
 
         stage('SonarQube Scan') {
             steps {
-                sh 'sonar-scanner'
+                withSonarQubeEnv("${SONARQUBE}") {
+                    sh 'sonar-scanner'
+                }
             }
         }
 
-        stage('Build Docker') {
+        stage('Build Image') {
             steps {
-                sh 'docker build -t your-dockerhub/php-ecommerce .'
+                sh "docker build -t $IMAGE_NAME:$BUILD_NUMBER ."
             }
         }
 
-        stage('Push Docker') {
+        stage('Push to Nexus') {
             steps {
-                sh 'docker push your-dockerhub/php-ecommerce'
+                withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh """
+                    docker login YOUR_NEXUS_IP:8082 -u $USER -p $PASS
+                    docker push $IMAGE_NAME:$BUILD_NUMBER
+                    """
+                }
             }
         }
 
         stage('Deploy to EKS') {
             steps {
-                sh 'kubectl apply -f k8s/'
+                sh """
+                sed -i 's|IMAGE_TAG|$BUILD_NUMBER|g' k8s/deployment.yaml
+                kubectl apply -f k8s/
+                """
             }
         }
     }
