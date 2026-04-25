@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: php
-        image: your-dockerhub/php-ecommerce
+        image: YOUR_NEXUS_IP:8082/php-ecommerce:IMAGE_TAG
         ports:
         - containerPort: 80
         envFrom:
