@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: php-app
-        image: image: 3.107.197.219:8083/php-app:IMAGE_TAG
+        image: sridatta5157/php-ecommerce:IMAGE_TAG
         ports:
         - containerPort: 80
         env:
