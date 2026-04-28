@@ -1,51 +1,82 @@
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = "YOUR_NEXUS_IP:8082/php-ecommerce"
-        SONARQUBE = "SonarQube"
+    environment { 
+        IMAGE = "3.106.167.104:8083/docker-hosted/php-ecommerce"   // 🔥 NEXUS IMAGE
+        SONAR_SERVER = "sonar-scanner"
+        NEXUS_URL = "3.106.167.104:8083"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                git 'https://github.com/YOUR-REPO/php-ecommerce-devops.git'
+                git branch: 'main',
+                credentialsId: 'git-cred',
+                url: 'https://github.com/sridattaga/php-ecommerce-devops.git'
             }
         }
 
-        stage('SonarQube Scan') {
+        stage('Sonar Scan') {
             steps {
-                withSonarQubeEnv("${SONARQUBE}") {
-                    sh 'sonar-scanner'
-                }
-            }
-        }
-
-        stage('Build Image') {
-            steps {
-                sh "docker build -t $IMAGE_NAME:$BUILD_NUMBER ."
-            }
-        }
-
-        stage('Push to Nexus') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                withSonarQubeEnv("${SONAR_SERVER}") {
                     sh """
-                    docker login YOUR_NEXUS_IP:8082 -u $USER -p $PASS
-                    docker push $IMAGE_NAME:$BUILD_NUMBER
+                    ${tool 'sonar-scanner'}/bin/sonar-scanner \
+                    -Dsonar.projectKey=php-ecommerce \
+                    -Dsonar.sources=. \
+                    -Dsonar.host.url=http://3.106.167.104:9000 \
+                    -Dsonar.token=$SONAR_AUTH_TOKEN
                     """
                 }
             }
         }
 
-        stage('Deploy to EKS') {
+      
+        stage('Build Docker Image') {
             steps {
                 sh """
+                docker build -t $IMAGE:$BUILD_NUMBER -f docker/Dockerfile .
+                """
+            }
+        }
+
+        // 🔥 NEW: PUSH TO NEXUS
+        stage('Push to Nexus') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-cred',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASS'
+                )]) {
+                    sh """
+                    echo $NEXUS_PASS | docker login 3.106.167.104:8083 -u $NEXUS_USER --password-stdin
+                    docker push $IMAGE:$BUILD_NUMBER
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh """
+                export KUBECONFIG=/var/lib/jenkins/.kube/config
+        
+                kubectl get nodes
+        
                 sed -i 's|IMAGE_TAG|$BUILD_NUMBER|g' k8s/deployment.yaml
+        
                 kubectl apply -f k8s/
                 """
             }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment Successful"
+        }
+        failure {
+            echo "Pipeline Failed"
         }
     }
 }
