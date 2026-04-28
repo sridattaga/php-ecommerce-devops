@@ -16,7 +16,7 @@ spec:
         - name: nexus-secret
       containers:
         - name: php-app
-          image: 3.107.197.219:8083/docker-hosted/php-ecommerce:30
+          image: 3.106.167.104:8083/docker-hosted/php-ecommerce:30
           ports:
             - containerPort: 80
           env:
